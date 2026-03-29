@@ -1,0 +1,291 @@
+<html>
+<head>
+<style>
+  body { font-family: Georgia, 'Times New Roman', serif; max-width: 700px; margin: 40px auto; padding: 0 20px; line-height: 1.8; color: #292929; font-size: 18px; }
+  h1 { font-size: 36px; line-height: 1.2; margin-bottom: 8px; }
+  h2 { font-size: 26px; margin-top: 48px; }
+  h3 { font-size: 21px; margin-top: 36px; }
+  p { margin: 16px 0; }
+  blockquote { border-left: 3px solid #ccc; padding-left: 20px; margin: 24px 0; color: #555; font-style: italic; }
+  pre { background: #f5f5f5; padding: 16px; border-radius: 4px; overflow-x: auto; font-size: 14px; line-height: 1.5; font-family: Menlo, Monaco, monospace; }
+  code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 16px; font-family: Menlo, Monaco, monospace; }
+  table { border-collapse: collapse; width: 100%; margin: 24px 0; }
+  th, td { border: 1px solid #ddd; padding: 10px 14px; text-align: left; font-size: 16px; }
+  th { background: #f5f5f5; font-weight: bold; }
+  strong { font-weight: 700; }
+  em { font-style: italic; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 48px 0; }
+  .subtitle { font-size: 20px; color: #666; margin-top: 4px; margin-bottom: 32px; line-height: 1.4; }
+  .caption { font-size: 14px; color: #888; text-align: center; margin-top: -12px; }
+</style>
+</head>
+<body>
+
+<h1>I Gave My AI Agent a Hippocampus. Here's What Happened.</h1>
+<p class="subtitle">How neuroscience-inspired memory architecture made Claude Code 29% faster and mass produced auto-discovered skills</p>
+
+<p>Every time you start a new session with an AI coding agent, it forgets everything. Your project layout. The password to your database. That obscure build flag that took you forty minutes to figure out last Tuesday. The agent starts cold, every single time.</p>
+
+<p>Your brain does not work this way. When you walk into your office and someone says "the deployment is broken," you do not start from scratch. A cascade of associations fires instantly: the last time deployment broke, which config file was wrong, who fixed it, what monitoring dashboard to check. You recall not because someone gave you a keyword search, but because your hippocampus completed a partial pattern into a full memory.</p>
+
+<p>I wanted to give an AI agent that same capability. Not as a metaphor. As an actual architectural layer modeled after how the hippocampus, neocortex, and basal ganglia work together in the human brain.</p>
+
+<p>This is the story of building it, what it looks like inside, and the measurable difference it made.</p>
+
+<hr>
+
+<h2>The brain has three memory systems. AI agents have zero.</h2>
+
+<p>Neuroscience identifies at least three distinct memory systems that work in concert:</p>
+
+<p><strong>The neocortex</strong> stores long term knowledge: facts, concepts, relationships. It is slow to update but vast in capacity. When you know that Python is a programming language or that Docker containers need port mappings, that knowledge lives in neocortical representations built up over years.</p>
+
+<p><strong>The hippocampus</strong> is the associative recall engine. It does not store memories in the way people commonly imagine. Instead, it stores <em>indices</em> into neocortical representations and, critically, the <em>co-activation patterns</em> between them. Region CA3 of the hippocampus is specifically responsible for pattern completion: given a partial cue, it reconstructs the full memory by activating associated concepts through recurrent connections. When you smell coffee and suddenly remember a conversation from three years ago, that is CA3 performing associative pattern completion.</p>
+
+<p><strong>The basal ganglia</strong> handles procedural memory: skills, habits, and learned sequences of actions. You do not consciously think about how to ride a bicycle or how to type. These are compiled action patterns that fire automatically when the right context appears. The basal ganglia learns them through reinforcement, strengthening action sequences that lead to success and weakening those that do not.</p>
+
+<p>Current AI coding agents have something resembling a neocortex (their training data, plus whatever files you put in context). But they have no hippocampus and no basal ganglia. They cannot associate the current moment with relevant past experiences, and they cannot learn reusable skills from repeated patterns.</p>
+
+<p>I set out to add both.</p>
+
+<hr>
+
+<h2>Architecture: how the layers map to neuroscience</h2>
+
+<p>The system I built sits on top of Claude Code as a sidecar. It does not modify the agent itself. Instead, it intercepts the flow of information before each turn and enriches it with associatively recalled context, exactly as the hippocampus enriches neocortical processing.</p>
+
+<p>Here is the mapping:</p>
+
+<h3>Neocortex: Neo4j + Graphiti knowledge graph</h3>
+
+<p>The long term store is a Neo4j graph database running alongside the agent. Every tool call, every decision, every error gets recorded as a Trace node linked to its Session. A system called Graphiti (running as a Docker container) automatically extracts entities and facts from these traces, building a growing knowledge graph of concepts and their relationships.</p>
+
+<p>This is the neocortical layer. It accumulates slowly, retains broadly, and represents the agent's "world knowledge" about your projects, tools, and patterns.</p>
+
+<p>At the time of writing, the graph contains:</p>
+
+<table>
+<tr><th>Node type</th><th>Count</th><th>Example</th></tr>
+<tr><td>Entity nodes</td><td>2,119</td><td>"Docker", "wasm-pack", "Quantum circuits"</td></tr>
+<tr><td>Episodic nodes</td><td>2,854</td><td>Raw experience traces</td></tr>
+<tr><td>Trace nodes</td><td>4,101</td><td>Individual tool call records</td></tr>
+<tr><td>Session nodes</td><td>82</td><td>Complete work sessions</td></tr>
+</table>
+
+<h3>Hippocampus (CA3): Spreading activation over co-occurrence graph</h3>
+
+<p>This is the core innovation. On top of the neocortical knowledge graph, I built a layer of <strong>COACTIVATED</strong> edges between Entity nodes. These edges are created whenever two concepts appear together in the same session. The more often they co-occur, the stronger the edge. The more recently they co-occurred, the higher the weight.</p>
+
+<p>This directly mirrors how CA3 works. In the hippocampus, neurons that fire together wire together (Hebbian learning). The connection strength between two memories increases with co-occurrence and decays with time. The mathematical model is simple:</p>
+
+<pre>weight = co_occurrence_count * exp(-0.03 * days_since_last)</pre>
+
+<p>That exponential decay with a half life of roughly 23 days means recent experiences dominate, but frequently repeated patterns persist. Exactly like biological memory consolidation.</p>
+
+<p>When a user types a prompt, the system performs <strong>spreading activation</strong>, the same computational process neuroscientists use to model CA3 recall:</p>
+
+<p><strong>1. Cue construction:</strong> Extract keywords and bigrams from the user's prompt</p>
+<p><strong>2. Seed phase:</strong> Find Entity nodes matching the cue (like CA3 receiving input from the entorhinal cortex)</p>
+<p><strong>3. Spread phase:</strong> From seed nodes, traverse COACTIVATED edges weighted by strength, activating neighbors (like CA3 recurrent connections completing the pattern)</p>
+<p><strong>4. Rank phase:</strong> Score activated nodes by combining activation strength, temporal recency, and workspace relevance</p>
+<p><strong>5. Compression:</strong> Package the top activated concepts into a compact context packet (like hippocampal output projecting back to neocortex)</p>
+
+<p>This entire process takes 12 to 150 milliseconds. The result is injected into the agent's context before it sees the user's prompt, completely invisible to the user.</p>
+
+<h3>Basal ganglia: Auto-detected procedural skills</h3>
+
+<p>The third layer handles skill formation. In the brain, the basal ganglia learns procedural skills through reinforcement: action sequences that consistently lead to good outcomes get compiled into automatic routines.</p>
+
+<p>The skill detector does the same thing computationally:</p>
+
+<p><strong>1.</strong> After each session ends, it examines which concepts co-occurred across multiple sessions</p>
+<p><strong>2.</strong> It matches concept clusters against known technical archetypes (WASM applications, Docker setups, quantum simulations, browser games, ML training pipelines)</p>
+<p><strong>3.</strong> When a pattern appears in 2+ sessions with consistent tool sequences, it crystallizes into a <strong>skill node</strong> in the graph</p>
+<p><strong>4.</strong> These skill nodes get their own COACTIVATED edges to their trigger concepts</p>
+<p><strong>5.</strong> On future prompts, when those trigger concepts activate, the skill activates too and appears as "Suggested skills" in the context packet</p>
+
+<p>The key insight from neuroscience here is that skills are not explicitly programmed. They <em>emerge</em> from repeated co-activation patterns, exactly as the basal ganglia extracts motor programs from repeated cortico-striatal loops.</p>
+
+<p>Currently the system has auto-detected 5 skills:</p>
+
+<table>
+<tr><th>Skill</th><th>Source pattern</th><th>Sessions observed</th></tr>
+<tr><td><code>/wasm-app</code></td><td>Rust + wasm-pack + browser projects</td><td>2</td></tr>
+<tr><td><code>/quantum-sim</code></td><td>Quantum gates + circuit visualization</td><td>10</td></tr>
+<tr><td><code>/canvas-app</code></td><td>Canvas/WebGL interactive applications</td><td>10</td></tr>
+<tr><td><code>/course-builder</code></td><td>Interactive educational content</td><td>3</td></tr>
+<tr><td><code>/browser-game</code></td><td>Browser-based game development</td><td>15</td></tr>
+</table>
+
+<p>These were discovered automatically. Nobody told the system that "quantum simulation" is a skill. It observed that certain concepts (Quantum Gates, Canvas, qubit operations) repeatedly co-occurred across sessions and crystallized the pattern.</p>
+
+<hr>
+
+<h2>The temporal dimension: how memories age</h2>
+
+<p>One of the most important aspects of biological memory is temporal dynamics. Fresh memories are vivid and easily recalled. Old memories fade unless they are reinforced. The hippocampus handles this through a process called consolidation: frequently accessed memories gradually transfer from hippocampal to neocortical storage, becoming permanent.</p>
+
+<p>The system implements three temporal mechanisms:</p>
+
+<p><strong>Edge weight decay.</strong> Every COACTIVATED edge has a timestamp. The weight formula applies exponential decay, so a co-occurrence from yesterday contributes more than one from three weeks ago. This prevents the graph from being dominated by ancient patterns that may no longer be relevant.</p>
+
+<p><strong>Episode purging with knowledge preservation.</strong> Raw episodic traces (the equivalent of hippocampal short term storage) are purged after 30 days. But the entities and facts extracted from those episodes persist, like memories that have been consolidated into neocortical long term storage. The specific details of what happened on March 5th fade, but the lesson "when Neo4j returns a timeout, check the APOC plugin version" remains.</p>
+
+<p><strong>Concept extraction on session end.</strong> When a session ends, a hook automatically extracts technical concepts from the trace data using pattern matching (CamelCase identifiers, hyphenated terms, known technology names, error types). These become new Entity nodes in the graph. Over time, the graph grows richer and more connected. This is the equivalent of hippocampal memory encoding during sleep consolidation.</p>
+
+<hr>
+
+<h2>The concrete difference: a controlled experiment</h2>
+
+<p>Theory is nice. Numbers are better. I ran a controlled experiment: two AI agents performing the exact same task ("Build an in-memory Python compiler that runs in the browser using WebAssembly"), one with the hippocampal memory system active and one without.</p>
+
+<p>Both agents had identical capabilities. The only difference was that the memory-enhanced agent received a context packet before starting, containing associatively recalled knowledge from a previous WASM project (a quantum circuit simulator I had built earlier in the same workspace).</p>
+
+<p>Here are the raw numbers, pulled directly from the agent execution metadata and verified against the files on disk:</p>
+
+<table>
+<tr><th>Metric</th><th>Without memory</th><th>With memory</th><th>Change</th></tr>
+<tr><td>Time to complete</td><td>227,510 ms (3m 48s)</td><td>162,499 ms (2m 42s)</td><td><strong>29% faster</strong></td></tr>
+<tr><td>Tokens consumed</td><td>40,466</td><td>35,201</td><td><strong>13% fewer</strong></td></tr>
+<tr><td>Tool calls</td><td>9</td><td>9</td><td>Same</td></tr>
+<tr><td>WASM binary size</td><td>123,809 bytes (121 KB)</td><td>92,050 bytes (90 KB)</td><td><strong>26% smaller</strong></td></tr>
+<tr><td>Rust source lines</td><td>1,109</td><td>716</td><td>36% leaner</td></tr>
+<tr><td>Files explored before coding</td><td>0</td><td>0</td><td>Same</td></tr>
+</table>
+
+<p>The memory-enhanced agent's build trace explicitly stated: <em>"the associative memory context provided the exact Cargo.toml template, build command, and HTML import pattern from a prior successful WASM project. This was a direct implementation from cached knowledge."</em></p>
+
+<p>The baseline agent, starting cold, still succeeded (it knew wasm-pack from its training data). But it was less decisive. It included <code>rlib</code> as an unnecessary crate type in Cargo.toml (making the binary 26% larger). It added verbose install hints in the build script. It wrote more defensive, exploratory code.</p>
+
+<p>The memory-enhanced agent knew from the context packet that <code>cdylib</code> alone works, that <code>wasm-pack build --target web --out-dir www/pkg --release</code> is the exact command, and that ES module imports via <code>import init, { ClassName } from './pkg/module.js'</code> is the proven pattern. It went straight to implementation with zero hesitation.</p>
+
+<p><strong>The honest caveat:</strong> both agents already knew wasm-pack from training data. The real advantage of hippocampal memory shows for things that are NOT in training data: your specific database passwords, your custom project layouts, your error workarounds, your preferences. Those only exist in the associative memory graph.</p>
+
+<hr>
+
+<h2>How it actually works, step by step</h2>
+
+<p>Let me trace through a concrete example to make this tangible.</p>
+
+<p><strong>You type:</strong> "the neo4j queries in contextgraph are slow, optimize the cypher"</p>
+
+<p><strong>Without hippocampal memory:</strong> Claude sees your prompt and nothing else. It has no idea what "contextgraph" is, what Neo4j instance you are running, what the password is, what schema exists, or what queries have been slow. It will spend its first 3 to 5 tool calls just exploring the directory, reading config files, and figuring out the setup.</p>
+
+<p><strong>With hippocampal memory,</strong> here is what happens in 15 milliseconds before Claude sees the prompt:</p>
+
+<p><strong>1. Keyword extraction:</strong> <code>['neo4j queries', 'queries contextgraph', 'contextgraph slow', 'optimize cypher', 'contextgraph', 'optimize']</code></p>
+
+<p><strong>2. Seed phase:</strong> Entity nodes matching these keywords are found. "contextgraph-neo4j" has 7 COACTIVATED edges (well connected), so it becomes a seed with activation 1.0. "neo4j", "cypher-shell", "Parameterized Cypher" also seed.</p>
+
+<p><strong>3. Spread phase:</strong> From "contextgraph-neo4j", the activation spreads along COACTIVATED edges to "tracegraph2026" (the password, which co-occurred in the same sessions), "contextgraph-mcp" (the MCP component), and "SESSION TIMELINE" (a query pattern). Spread activation = parent_activation * 0.3 * normalized_edge_weight.</p>
+
+<p><strong>4. Context packet injected:</strong></p>
+
+<pre>[Associative recall, 14 concepts, 15ms]
+
+Related concepts:
+- contextgraph-neo4j: Neo4j database instance for executing Cypher queries to analyze traces
+- neo4j: Graph database system used for managing and querying experiment data
+- cypher-shell: Command-line interface tool for interacting with Neo4j graph databases
+- Parameterized Cypher: Related to the trace lineage system implementation
+
+Also relevant: tracegraph2026, contextgraph-mcp, Session, SESSION TIMELINE</pre>
+
+<p>Claude now knows the instance name, the password, the schema, and the query patterns before writing a single line of code. Pattern completion from a partial cue, exactly like CA3.</p>
+
+<hr>
+
+<h2>How skills emerge (the basal ganglia in action)</h2>
+
+<p>Here is a concrete example of skill formation.</p>
+
+<p>Over the course of working in a quantum computing project, the system observed these concepts repeatedly co-occurring across 10 sessions: Quantum Gates, Canvas rendering, Key Quantum Algorithms, Quantum Computing, web-based visualization.</p>
+
+<p>No individual session contained a "this is a quantum simulation skill" declaration. But the co-activation pattern was consistent enough that the skill detector, running automatically at the end of each session, crystallized it into:</p>
+
+<pre>/quantum-sim: Build quantum circuit simulations and visualizations.
+Based on 10 sessions. Key concepts: Quantum Gates, Canvas,
+Key Quantum Algorithms, Quantum Computing, web-based.</pre>
+
+<p>This skill node gets COACTIVATED edges to each of its trigger concepts. So the next time someone types "build a quantum circuit visualizer," the seed "quantum" activates the Quantum Gates entity, which spreads to the <code>/quantum-sim</code> skill, which appears in the context packet as a suggested skill.</p>
+
+<p>The skill was never explicitly created. It emerged from repeated patterns, was reinforced by recurrence across sessions, and is now automatically suggested when the right context appears. That is procedural memory formation.</p>
+
+<p>If the pattern stops recurring (nobody works on quantum projects for months), the COACTIVATED edge weights decay via the exponential time factor, and the skill gradually stops being suggested. Skills that stay relevant keep getting reinforced. Skills that become obsolete fade. Just like biological procedural memory.</p>
+
+<hr>
+
+<h2>The graph as a living structure</h2>
+
+<p>Here is what the complete system looks like, with the neuroscience mapping made explicit:</p>
+
+<pre>User prompt
+    |
+    v
+Cue construction         &lt;-- Entorhinal cortex: sensory input encoding
+    |
+    v
+Seed phase               &lt;-- Dentate gyrus: pattern separation
+    |
+    v
+Spreading activation     &lt;-- CA3: pattern completion via recurrent connections
+    |
+    v
+Ranking + compression    &lt;-- CA1: output selection and projection
+    |
+    v
+Context packet           &lt;-- Hippocampal output to neocortex
+    |
+    v
+Claude Code (LLM)        &lt;-- Prefrontal cortex: planning and execution
+    |
+    v
+Tool calls + traces      &lt;-- Motor output / action
+    |
+    v
+Session-end hook         &lt;-- Sleep consolidation
+    |
+    +--> Extract concepts       &lt;-- Memory encoding
+    +--> Build co-activations   &lt;-- Hebbian learning (fire together, wire together)
+    +--> Detect skills          &lt;-- Basal ganglia: procedural skill extraction</pre>
+
+<p>The Neo4j graph database plays the role of the neural substrate itself. Entity nodes are like neuronal populations representing concepts. COACTIVATED edges are like synaptic connections whose weights change through experience. The spreading activation algorithm is a direct computational analogy to how neural activation propagates through recurrent connections in CA3.</p>
+
+<hr>
+
+<h2>What this means for AI agents going forward</h2>
+
+<p>The current generation of AI agents is stateless by default. Every session is a fresh start. Some systems bolt on retrieval augmented generation (keyword search over past transcripts) but this is fundamentally different from associative memory. Search requires knowing what to look for. Associative recall activates relevant context from a partial, ambiguous cue, including context you did not know was relevant.</p>
+
+<p>The difference matters most in these scenarios:</p>
+
+<p><strong>Cross-project knowledge transfer.</strong> You built a WASM app last month. Now you are building a different WASM app. The hippocampal layer automatically recalls the build pattern, toolchain decisions, and pitfalls from the previous project, even though you never mentioned it.</p>
+
+<p><strong>Error pattern recognition.</strong> The system has seen Bash fail with "Permission denied" five times. It has seen the successful retry pattern. When a similar error context activates, the recovery pattern comes along for free.</p>
+
+<p><strong>Skill accumulation.</strong> After building three interactive HTML courses, the system has learned that this is a recurring pattern. It suggests the <code>/course-builder</code> skill before you even describe the task fully.</p>
+
+<p><strong>Temporal relevance.</strong> Last week's Docker configuration matters more than last month's. The exponential decay ensures fresh experiences dominate while letting frequently reinforced patterns persist.</p>
+
+<p>None of this requires changes to the underlying LLM. The hippocampal layer sits between the user and the agent, enriching every prompt with associatively recalled context. It is a 12 to 150 millisecond preprocessing step that makes the agent behave as if it remembers.</p>
+
+<p>Because in a meaningful computational sense, it does.</p>
+
+<hr>
+
+<h2>Technical details for builders</h2>
+
+<p>The system is built on:</p>
+<p><strong>Neo4j 5.26</strong> for the graph substrate (Entity nodes, COACTIVATED edges, Trace lineage)</p>
+<p><strong>Python</strong> for the spreading activation engine, concept extraction, and skill detection</p>
+<p><strong>Claude Code hooks</strong> for automatic operation (UserPromptSubmit triggers recall, Stop triggers learning)</p>
+<p><strong>No LLM dependency</strong> for the memory system itself (concept extraction uses regex pattern matching, not LLM calls)</p>
+
+<p>The complete activation pipeline: keyword extraction from the user's prompt, entity seeding from Neo4j, 2-hop spreading activation over COACTIVATED edges with exponential decay weighting, multi-signal ranking (activation strength multiplied by recency multiplied by workspace match), and compression into a token-bounded context packet.</p>
+
+<p>Everything runs locally. No external API calls for memory operations. The 12 to 150ms latency fits within Claude Code's 5-second hook timeout with room to spare.</p>
+
+<p>The key insight is that you do not need a biological simulation to get biologically inspired behavior. You need the right computational abstractions: co-activation structure for Hebbian learning, spreading activation for pattern completion, exponential decay for temporal dynamics, and cluster detection for skill emergence. Map those abstractions onto a graph database and a few hundred lines of Python, and you get an AI agent that behaves less like a search engine and more like a colleague who actually remembers working with you before.</p>
+
+</body>
+</html>

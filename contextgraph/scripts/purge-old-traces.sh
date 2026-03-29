@@ -107,7 +107,7 @@ echo "  Deleted ${DELETED} episodes older than ${RETENTION_DAYS} days"
 echo "  Entities and facts from multiple episodes are preserved (crystallized)"
 
 # Neo4j stats
-NEO4J_PASSWORD="${NEO4J_PASSWORD:-tracegraph2026}"
+NEO4J_PASSWORD="${NEO4J_PASSWORD:-${NEO4J_PASSWORD}}"
 NODE_COUNT=$(docker exec contextgraph-neo4j cypher-shell -u neo4j -p "${NEO4J_PASSWORD}" "MATCH (n) RETURN count(n) AS c" 2>/dev/null | tail -1 || echo "?")
 REL_COUNT=$(docker exec contextgraph-neo4j cypher-shell -u neo4j -p "${NEO4J_PASSWORD}" "MATCH ()-[r]->() RETURN count(r) AS c" 2>/dev/null | tail -1 || echo "?")
 echo "  Neo4j: ${NODE_COUNT} nodes, ${REL_COUNT} relationships"

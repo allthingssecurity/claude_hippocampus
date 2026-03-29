@@ -151,7 +151,7 @@ Let me trace through a concrete example to make this tangible.
 
 2. **Seed phase**: Entity nodes matching these keywords are found. "contextgraph-neo4j" has 7 COACTIVATED edges (well connected), so it becomes a seed with activation 1.0. "neo4j", "cypher-shell", "Parameterized Cypher" also seed.
 
-3. **Spread phase**: From "contextgraph-neo4j", the activation spreads along COACTIVATED edges to "tracegraph2026" (the password, which co-occurred in the same sessions), "contextgraph-mcp" (the MCP component), and "SESSION TIMELINE" (a query pattern). Spread activation = parent_activation * 0.3 * normalized_edge_weight.
+3. **Spread phase**: From "contextgraph-neo4j", the activation spreads along COACTIVATED edges to "${NEO4J_PASSWORD}" (the password, which co-occurred in the same sessions), "contextgraph-mcp" (the MCP component), and "SESSION TIMELINE" (a query pattern). Spread activation = parent_activation * 0.3 * normalized_edge_weight.
 
 4. **Context packet injected**:
 ```
@@ -163,7 +163,7 @@ Related concepts:
 - cypher-shell: Command-line interface tool for interacting with Neo4j graph databases
 - Parameterized Cypher: Related to the trace lineage system implementation
 
-Also relevant: tracegraph2026, contextgraph-mcp, Session, SESSION TIMELINE
+Also relevant: ${NEO4J_PASSWORD}, contextgraph-mcp, Session, SESSION TIMELINE
 ```
 
 Claude now knows the instance name, the password, the schema, and the query patterns before writing a single line of code. Pattern completion from a partial cue, exactly like CA3.

@@ -36,7 +36,7 @@ docker compose up -d
 curl http://localhost:8100/health
 
 # Browse the graph
-open http://localhost:7475    # Neo4j Browser (neo4j / tracegraph2026)
+open http://localhost:7475    # Neo4j Browser (neo4j / ${NEO4J_PASSWORD})
 ```
 
 ## Connect to Claude Code

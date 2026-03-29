@@ -72,7 +72,7 @@ docker compose up -d
 
 ```bash
 # Run CA3 schema additions
-curl -s -u neo4j:tracegraph2026 -H "Content-Type: application/json" \
+curl -s -u neo4j:${NEO4J_PASSWORD} -H "Content-Type: application/json" \
   -d @schema/ca3-schema.cypher http://localhost:7475/db/neo4j/tx/commit
 ```
 

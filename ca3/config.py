@@ -4,7 +4,7 @@ import os
 
 # Neo4j connection (same instance as contextgraph)
 NEO4J_URL = os.environ.get("TRACE_NEO4J_URL", "http://localhost:7475")
-NEO4J_AUTH = os.environ.get("TRACE_NEO4J_AUTH", "neo4j:tracegraph2026")
+NEO4J_AUTH = os.environ.get("TRACE_NEO4J_AUTH", "neo4j:${NEO4J_PASSWORD:-changeme}")
 GRAPHITI_URL = os.environ.get("TRACE_GRAPHITI_URL", "http://localhost:8100")
 GROUP_ID = os.environ.get("TRACE_GROUP_ID", "claude-traces")
 

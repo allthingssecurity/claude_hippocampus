@@ -93,7 +93,7 @@ When old episodes are purged, entities and facts that appear across multiple epi
 (:Entity)
 ```
 
-Browse the graph: http://localhost:7475 (Neo4j Browser, login: neo4j / tracegraph2026)
+Browse the graph: http://localhost:7475 (Neo4j Browser, login: neo4j / ${NEO4J_PASSWORD})
 
 ## Group ID Convention
 

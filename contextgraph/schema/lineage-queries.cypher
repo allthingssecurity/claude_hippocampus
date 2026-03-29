@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
 // AGENTIC LINEAGE QUERIES — Reference for Neo4j Browser
-// Open http://localhost:7475 | Login: neo4j / tracegraph2026
+// Open http://localhost:7475 | Login: neo4j / ${NEO4J_PASSWORD}
 // ═══════════════════════════════════════════════════════════════
 
 // ── LIST ALL SESSIONS ──────────────────────────────────────────

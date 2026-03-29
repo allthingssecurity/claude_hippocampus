@@ -9,7 +9,7 @@ set -euo pipefail
 
 # ── Config ──────────────────────────────────────────────────────
 NEO4J_URL="${TRACE_NEO4J_URL:-http://localhost:7475}"
-NEO4J_AUTH="${TRACE_NEO4J_AUTH:-neo4j:tracegraph2026}"
+NEO4J_AUTH="${TRACE_NEO4J_AUTH:-neo4j:${NEO4J_PASSWORD:-changeme}}"
 GRAPHITI_URL="${TRACE_GRAPHITI_URL:-http://localhost:8100}"
 GROUP_ID="${TRACE_GROUP_ID:-claude-traces}"
 STATE_BASE="/tmp/claude-traces"
